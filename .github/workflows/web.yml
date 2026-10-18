@@ -62,3 +62,27 @@ jobs:
           enablement: true
       - uses: actions/deploy-pages@v4
         id: deployment
+  release:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test-export
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Carlos-Koenigreich-web-0.7.0
+          path: web-release
+      - name: Package and release tested version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          git archive --format=zip --output=Carlos-Koenigreich-0.7.0-Godot.zip HEAD
+          cd web-release
+          zip -qr ../Carlos-Koenigreich-0.7.0-Web.zip .
+          cd ..
+          if ! gh release view v0.7.0 >/dev/null 2>&1; then
+            gh release create v0.7.0 --target "$GITHUB_SHA" --title "Carlos’ Königreich 0.7.0" --notes-file CHANGELOG.md Carlos-Koenigreich-0.7.0-Godot.zip Carlos-Koenigreich-0.7.0-Web.zip
+          fi

@@ -16,3 +16,6 @@ Actions importiert das Projekt, führt Regressionstests aus und erstellt einen W
 
 ## Noch offen
 Phase 2 und 3: größere Welt, Gelände, Nebel, Gegnerwirtschaft, Ritter, platzierbare zusätzliche Gebäude, Hotseat, Siegbedingungen und Balancing. Der aktuelle Stand ist weiterhin ein kompakter Einzelspieler-Prototyp.
+
+## Erster Veröffentlichungsversuch
+Tests und Webexport auf GitHub erfolgreich. Pages-Erstaktivierung scheiterte mit `Resource not accessible by integration`. Einmalig unter Repository Settings → Pages die Quelle GitHub Actions aktivieren und den fehlgeschlagenen Deployjob erneut ausführen. Sichtbarkeit des Repositorys bleibt unverändert.
