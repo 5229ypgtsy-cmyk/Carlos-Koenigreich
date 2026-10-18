@@ -608,8 +608,9 @@ func _next_day() -> void:
   gold+=20
   message+=" Nahrung verkauft: +20 G."
  _enemy_turn()
+ var day_report := message
  _save_game()
- message = "Tag %d automatisch gespeichert. " % turn + message
+ message = day_report + " " + message
  _refresh()
 
 func _hospital() -> void:
