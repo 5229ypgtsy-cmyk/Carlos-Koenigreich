@@ -1,0 +1,64 @@
+name: Test and publish web
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test-export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.3 and export templates
+        run: |
+          curl -fsSL https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip -o /tmp/godot.zip
+          unzip /tmp/godot.zip -d /tmp/godot
+          sudo mv /tmp/godot/Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
+          curl -fsSL https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz -o /tmp/templates.zip
+          unzip -q /tmp/templates.zip -d /tmp/export
+          mkdir -p ~/.local/share/godot/export_templates/4.3.stable
+          mv /tmp/export/templates/* ~/.local/share/godot/export_templates/4.3.stable/
+      - name: Import and check scripts
+        run: |
+          godot --headless --editor --import 2>&1 | tee /tmp/import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|Failed to load' /tmp/import.log
+      - name: Run regression tests
+        run: |
+          set -o pipefail
+          godot --headless --script res://tests/smoke.gd 2>&1 | tee /tmp/tests.log
+          ! grep -E 'SCRIPT ERROR|Assertion failed|Parse Error' /tmp/tests.log
+          grep -q 'PASS:' /tmp/tests.log
+      - name: Export single-threaded Safari build
+        run: |
+          mkdir -p build/web
+          godot --headless --export-release Web build/web/index.html
+          test -s build/web/index.wasm
+          test -s build/web/index.pck
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Carlos-Koenigreich-web-0.7.0
+          path: build/web
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test-export
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/deploy-pages@v4
+        id: deployment
