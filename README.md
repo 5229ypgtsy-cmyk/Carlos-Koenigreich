@@ -1,4 +1,4 @@
-# Carlos’ Königreich 0.7.0
+# Carlos’ Königreich 0.7.1
 
 Phase 1, ausgehend vom unveränderten Funktionsbestand 0.6.1.
 

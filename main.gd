@@ -34,7 +34,7 @@ var enemy_hp: Array[int] = [2,2]
 var selected := -1
 var mode := ""
 var turn := 1
-var message := "Wähle einen Soldaten. Gebäude und Mauern kannst du unten bauen."
+var message := "Tippe einen blauen Soldaten und danach ein Nachbarfeld an. Bauen & Aktionen öffnet das Menü."
 var hud: Label
 var info: Label
 var help: Label
@@ -53,8 +53,9 @@ func _ready() -> void:
  mouse_filter = Control.MOUSE_FILTER_PASS
  hud = Label.new()
  hud.position = Vector2(20, 12)
- hud.add_theme_font_size_override("font_size", 23)
+ hud.add_theme_font_size_override("font_size", 21)
  hud.add_theme_color_override("font_color", Color("253d2d"))
+ hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
  add_child(hud)
  info = Label.new()
  info.position = Vector2(20, 49)
@@ -62,6 +63,7 @@ func _ready() -> void:
  info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
  info.add_theme_font_size_override("font_size", 16)
  info.add_theme_color_override("font_color", Color("293c2b"))
+ info.mouse_filter = Control.MOUSE_FILTER_IGNORE
  add_child(info)
  action_help = Label.new()
  action_help.position = Vector2(20, 548)
@@ -69,6 +71,7 @@ func _ready() -> void:
  action_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
  action_help.add_theme_font_size_override("font_size", 15)
  action_help.add_theme_color_override("font_color", Color("234b67"))
+ action_help.mouse_filter = Control.MOUSE_FILTER_IGNORE
  add_child(action_help)
  help = Label.new()
  help.position = Vector2(20, 578)
@@ -76,6 +79,7 @@ func _ready() -> void:
  help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
  help.add_theme_font_size_override("font_size", 15)
  help.add_theme_color_override("font_color", Color("273d30"))
+ help.mouse_filter = Control.MOUSE_FILTER_IGNORE
  add_child(help)
  controls = GridContainer.new()
  controls.columns = 3
@@ -91,12 +95,12 @@ func _ready() -> void:
  _button("🎯 Training (110 G)", _buy_academy, "Trainingsstation: 110 Gold, einmalig. Ermöglicht Levelaufstieg und Spezialisierung.")
  _button("⭐ Aufwerten", _upgrade, "Aufwerten: Soldat auswählen. Kosten: aktuelles Level × 25 Gold. Maximal Level 5.")
  _button("🏹 Spezialisieren", _specialize, "Spezialisieren: 60 Gold. Rekrut wird zufällig Schwertkämpfer oder Bogenschütze.")
- _button("🧱 Mauer (35 G)", _wall_mode, "Mauer: 35 Gold. Danach freies Feld anklicken. Blockiert Feinde und eigene Truppen.")
+ _button("🧱 Mauer (35 G)", _wall_mode, "Mauer: 35 Gold. Danach freies Feld antippen. Blockiert Feinde und eigene Truppen.")
  _button("⏭ Nächster Tag", _next_day, "Nächster Tag: Ernte, Verbrauch, Steuern und Gegnerbewegung ausführen.")
  _button("❤️ Lazarett (120 G)", _hospital, "Einmalig 120 Gold. Verwundeten ausgewählten Soldaten am Heimatort für 12 Nahrung heilen.")
- _button("🧙 Druide (100 G)", _hire_druid, "100 Gold. Beweglicher Heiler. Druiden anklicken, dann freies Nachbarfeld; Heilung per Schaltfläche.")
+ _button("🧙 Druide (100 G)", _hire_druid, "100 Gold. Beweglicher Heiler. Druiden antippen, dann freies Nachbarfeld; Heilung per Schaltfläche.")
  _button("✨ Heilen (8 Essen)", _druid_heal, "Druide heilt einen benachbarten verletzten Soldaten um 1 LP. Einmal je Tag, 8 Nahrung.")
- _button("🪤 Falle (35 G)", _trap_mode, "35 Gold. Danach Feld anklicken. Feinde verlieren beim Betreten 2 Lebenspunkte.")
+ _button("🪤 Falle (35 G)", _trap_mode, "35 Gold. Danach Feld antippen. Feinde verlieren beim Betreten 2 Lebenspunkte.")
  _button("🏥 Lazarett-Heilung", _hospital_heal, "Heilt ausgewählten verletzten Soldaten am Dorf (12 Nahrung, 1 LP).")
  _button("💾 Speichern", _save_game, "Speichert den Spielstand lokal in diesem Browser oder auf diesem Gerät.")
  _button("📂 Laden", _load_game, "Lädt den zuletzt gespeicherten Spielstand.")
@@ -119,12 +123,26 @@ func _ready() -> void:
  day_button.custom_minimum_size = Vector2(234, 54)
  day_button.pressed.connect(_next_day)
  add_child(day_button)
+ for entry in [["−", 470, -0.15], ["+", 540, 0.15], ["Heimat", 610, 0.0]]:
+  var tool := Button.new()
+  tool.text = entry[0]
+  tool.position = Vector2(entry[1], 690)
+  tool.custom_minimum_size = Vector2(64 if entry[2] != 0.0 else 150, 54)
+  var amount: float = entry[2]
+  tool.pressed.connect(func() -> void:
+   if amount == 0.0:
+    camera_offset = Vector2.ZERO
+    zoom = 1.0
+   else: zoom = clampf(zoom + amount, 0.55, 1.6)
+   queue_redraw())
+  add_child(tool)
  help.visible = false
  info.position.y = 52
  info.size.y = 90
  action_help.position.y = 638
  action_help.size.y = 46
  _refresh()
+ action_help.text = "Tippe eine Einheit und dann ihr Ziel an. Wischen: Karte bewegen. Zwei Finger: Zoom."
 
 func _button(caption: String, action: Callable, explanation: String) -> void:
  var b := Button.new()
@@ -142,10 +160,10 @@ func _button(caption: String, action: Callable, explanation: String) -> void:
  controls.add_child(b)
 
 func _refresh() -> void:
- hud.text = "🏰 CARLOS' KÖNIGREICH   |   Tag %d   |   💰 %d G   |   🌾 %d Essen   |   ⚔ %d Soldaten" % [turn,gold,food,soldiers.size()]
- info.text = ("BAUMODUS: %s | ESC / Rechtsklick: Abbrechen\n" % ("Falle" if mode=="trap" else "Mauer" if mode=="wall" else "Druide bewegen") if mode!="" else "") + message + "\nBauern: %d/%d Plätze   Felder: %d   Feinde: %d   |   Kaserne: %s   Training: %s" % [farmers, houses * 4, fields.size(), enemies.size(), "Ja" if barracks else "Nein", "Ja" if academy else "Nein"]
+ hud.text = "🏰 CARLOS' KÖNIGREICH 0.7.1   |   Tag %d   |   💰 %d G   |   🌾 %d Essen   |   ⚔ %d Soldaten" % [turn,gold,food,soldiers.size()]
+ info.text = ("BAUMODUS: %s | Abbrechen: Schaltfläche unten\n" % ("Falle" if mode=="trap" else "Mauer" if mode=="wall" else "Druide bewegen") if mode!="" else "") + message + "\nBauern: %d/%d Plätze   Felder: %d   Feinde: %d   |   Kaserne: %s   Training: %s" % [farmers, houses * 4, fields.size(), enemies.size(), "Ja" if barracks else "Nein", "Ja" if academy else "Nein"]
  if action_help.text.is_empty(): action_help.text = "ℹ Zeige mit der Maus auf eine Aktion, um ihre Wirkung und Kosten zu erfahren."
- help.text = "ESC / Rechtsklick: Aktion abbrechen. Erneuter Klick auf Falle/Mauer: abwählen.\n🗺 Pfeiltasten: Karte verschieben. Mausrad: Zoom. 🧙 Druide anklicken, dann bewegen. ✨ heilt benachbarte Soldaten.\n🌾 1 Bauer arbeitet auf 1 Feld (max. 2/Feld), 6 Essen/Tag ± Wetter. Verbrauch: 1/Bauer, 2/Soldat. Haus: 4 Plätze."
+ help.text = "ESC / Rechtsklick: Aktion abbrechen. Erneuter Klick auf Falle/Mauer: abwählen.\n🗺 Pfeiltasten: Karte verschieben. Mausrad: Zoom. 🧙 Druide antippen, dann bewegen. ✨ heilt benachbarte Soldaten.\n🌾 1 Bauer arbeitet auf 1 Feld (max. 2/Feld), 6 Essen/Tag ± Wetter. Verbrauch: 1/Bauer, 2/Soldat. Haus: 4 Plätze."
  queue_redraw()
 
 func _iso(p: Vector2i) -> Vector2:
@@ -237,6 +255,9 @@ func _blocked(p: Vector2i) -> bool:
  return fields.has(p) or walls.has(p) or p==druid_pos or soldiers.has(p) or enemies.has(p) or p==HOME or p==FORT
 
 func _input(event: InputEvent) -> void:
+ if event is InputEventScreenTouch or event is InputEventScreenDrag:
+  _touch_input(event)
+  return
  if event is InputEventKey and event.pressed and not event.echo:
   if event.keycode == KEY_ESCAPE:
    _cancel_mode()
@@ -263,9 +284,15 @@ func _cancel_mode() -> void:
  _refresh()
  queue_redraw()
 
-func _gui_input(event: InputEvent) -> void:
+func _over_touch_ui(point: Vector2) -> bool:
+ if point.y < 145 or point.y > 630: return true
+ if controls.visible and controls.get_global_rect().has_point(point): return true
+ return false
+
+func _touch_input(event: InputEvent) -> void:
  if event is InputEventScreenTouch:
   if event.pressed:
+   if _over_touch_ui(event.position): return
    touches[event.index] = event.position
    if touches.size() == 1:
     touch_start = event.position
@@ -273,12 +300,13 @@ func _gui_input(event: InputEvent) -> void:
    else:
     touch_dragged = true
   else:
+   if not touches.has(event.index): return
    touches.erase(event.index)
-   if touches.is_empty() and not touch_dragged:
+   if touches.is_empty() and not touch_dragged and not _over_touch_ui(event.position):
     _map_click(event.position)
-  accept_event()
   return
  if event is InputEventScreenDrag:
+  if not touches.has(event.index): return
   if touches.size() >= 2:
    var keys: Array = touches.keys()
    var old_distance: float = touches[keys[0]].distance_to(touches[keys[1]])
@@ -291,8 +319,12 @@ func _gui_input(event: InputEvent) -> void:
    if touch_dragged: camera_offset += event.relative
    touches[event.index] = event.position
   queue_redraw()
-  accept_event()
   return
+
+func _gui_input(event: InputEvent) -> void:
+ # Standard buttons receive emulated mouse taps. World actions use raw touch
+ # exclusively, so a swipe cannot also move a soldier or place a trap.
+ if (event is InputEventMouseButton or event is InputEventMouseMotion) and event.device == InputEvent.DEVICE_ID_EMULATION: return
  if event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_MIDDLE:
   camera_offset += event.relative
   queue_redraw()
@@ -322,14 +354,14 @@ func _map_click(click: Vector2) -> void:
  if clicked_soldier != -1 and mode != "":
   mode = ""
   selected = clicked_soldier
-  message = "Soldat %d ausgewählt. Klicke auf ein benachbartes Feld." % (clicked_soldier + 1)
+  message = "Soldat %d ausgewählt. Tippe auf ein benachbartes Feld." % (clicked_soldier + 1)
   _refresh()
   queue_redraw()
   return
  if target == druid_pos and mode != "":
   mode = "druid_move"
   selected = -1
-  message = "Druide ausgewählt. Klicke auf ein benachbartes Feld."
+  message = "Druide ausgewählt. Tippe auf ein benachbartes Feld."
   _refresh()
   queue_redraw()
   return
@@ -365,7 +397,7 @@ func _map_click(click: Vector2) -> void:
  if target==druid_pos:
   selected=-1
   mode="druid_move"
-  message="Druide ausgewählt. Klicke ein benachbartes freies Feld oder nutze ✨ Heilen."
+  message="Druide ausgewählt. Tippe ein benachbartes freies Feld oder nutze ✨ Heilen."
   _refresh()
   return
  var idx := soldiers.find(target)
@@ -418,7 +450,7 @@ func _combat(s: int,e: int) -> void:
    types.remove_at(s)
    soldier_hp.remove_at(s)
    outcome = "Dein Soldat ist gefallen!"
- battle_notice = "Angriff: %d + %d = %d   |   Abwehr: %d + 2 = %d\n%s\nKlicke zum Weiterspielen." % [attack_roll,bonus,attack,defense_roll,defense,outcome]
+ battle_notice = "Angriff: %d + %d = %d   |   Abwehr: %d + 2 = %d\n%s\nTippe zum Weiterspielen." % [attack_roll,bonus,attack,defense_roll,defense,outcome]
  battle_ticks = 1
  message = "⚔ " + outcome
  selected = -1
@@ -528,7 +560,7 @@ func _wall_mode() -> void:
  else:
   mode="wall"
   selected=-1
-  message="Klicke auf ein freies Feld für deine Mauer (35 G)."
+  message="Tippe auf ein freies Feld für deine Mauer (35 G)."
  _refresh()
 
 func _enemy_turn() -> void:
@@ -633,7 +665,7 @@ func _hire_druid() -> void:
   else:
    gold-=100
    druid_pos=spawn
-   message="Druide angekommen. Anklicken und auf Nachbarfeld bewegen."
+   message="Druide angekommen. Antippen und auf Nachbarfeld bewegen."
  _refresh()
 
 func _druid_heal() -> void:
